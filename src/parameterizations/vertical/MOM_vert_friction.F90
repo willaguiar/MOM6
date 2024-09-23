@@ -891,7 +891,7 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
       ray_mean = (Ray(I,1)*h_u(I,j,1)) + (Ray(I,2)*h_u(I,j,2)) + (Ray(I,3)*h_u(I,j,3)) + (Ray(I,4)*h_u(I,j,4)) 
       ray_mean = ray_mean / HU_sum
       b_denom_1 = HU_sum + dt * (ray_mean + a_umean)
-      b1(I) = 1.0 / (b_denom_1 + dt*CS%a_u(I,j,5)) #changed to 5, right below the first 4 cells
+      b1(I) = 1.0 / (b_denom_1 + dt*CS%a_u(I,j,5)) !changed to 5, right below the first 4 cells
       d1(I) = b_denom_1 * b1(I)
       u(I,j,k) = b1(I) * (HU_sum * u(I,j,k) + surface_stress(I))
       if (associated(ADp%du_dt_str)) &
