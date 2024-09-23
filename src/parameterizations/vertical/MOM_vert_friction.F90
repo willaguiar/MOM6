@@ -888,7 +888,7 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
       a_umean =  (cs%a_u(I,j,1)*cs%h_u(I,j,1)) + (cs%a_u(I,j,2)*cs%h_u(I,j,2)) + (cs%a_u(I,j,3)*cs%h_u(I,j,3)) + (cs%a_u(I,j,4)*cs%h_u(I,j,4))
       a_umean =  a_umean / HU_sum
       ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
-      ray_mean = (Ray(I,1)*h_u(I,j,1)) + (Ray(I,2)*h_u(I,j,2)) + (Ray(I,3)*h_u(I,j,3)) + (Ray(I,4)*h_u(I,j,4)) 
+      ray_mean = (Ray(I,1)*cs%h_u(I,j,1)) + (Ray(I,2)*cs%h_u(I,j,2)) + (Ray(I,3)*cs%h_u(I,j,3)) + (Ray(I,4)*cs%h_u(I,j,4)) 
       ray_mean = ray_mean / HU_sum
       b_denom_1 = HU_sum + dt * (ray_mean + a_umean)
       b1(I) = 1.0 / (b_denom_1 + dt*CS%a_u(I,j,5)) !changed to 5, right below the first 4 cells
