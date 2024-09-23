@@ -735,9 +735,9 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
   ! Local variables
 
   real :: a_umean    ! W.C. The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
-  real :: a_vmean    ! W.C. The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
+  real :: a_vmean    ! W.C. The v-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
   real :: HU_sum                ! W.C. Sum of  all H_us over the top HMIX_STRESS depth [m]
-  real :: HV_sum                ! W.C. Sum of  all H_us over the top HMIX_STRESS depth [m]
+  real :: HV_sum                ! W.C. Sum of  all H_vs over the top HMIX_STRESS depth [m]
   real :: ray_mean ! Ray_mean is the Rayleigh-drag velocity, averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1].
   real :: b1(SZIB_(G))           ! A variable used by the tridiagonal solver [H-1 ~> m-1 or m2 kg-1].
   real :: c1(SZIB_(G),SZK_(GV))  ! A variable used by the tridiagonal solver [nondim].
@@ -1040,12 +1040,12 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
     enddo ; enddo ; endif
 
     do k=1,4 ; do i=is,ie ; if (do_i(i)) then
-      HV_sum = cs%h_v(i,J,1) + cs%h_v(i,J,2) + cs%h_v(i,J,3) + cs%h_v(i,J,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
+      HV_sum = CS%h_v(i,J,1) + CS%h_v(i,J,2) + CS%h_v(i,J,3) + CS%h_v(i,J,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
       ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
-      a_vmean =  (cs%a_v(i,J,1)*cs%h_v(i,J,1)) + (cs%a_v(i,J,2)*cs%h_v(i,J,2)) + (cs%a_v(i,J,3)*cs%h_v(i,J,3)) + (cs%a_v(i,J,4)*cs%h_v(i,J,4))
+      a_vmean =  (CS%a_v(i,J,1)*CS%h_v(i,J,1)) + (CS%a_v(i,J,2)*CS%h_v(i,J,2)) + (CS%a_v(i,J,3)*CS%h_v(i,J,3)) + (CS%a_v(i,J,4)*CS%h_v(i,J,4))
       a_vmean =  a_vmean / HV_sum
       ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
-      ray_mean = (Ray(i,1)*cs%h_v(i,J,1)) + (Ray(i,2)*cs%h_v(i,J,2)) + (Ray(i,3)*cs%h_v(i,J,3)) + (Ray(i,4)*cs%h_v(i,J,4)) 
+      ray_mean = (Ray(i,1)*CS%h_v(i,J,1)) + (Ray(i,2)*CS%h_v(i,J,2)) + (Ray(i,3)*CS%h_v(i,J,3)) + (Ray(i,4)*CS%h_v(i,J,4)) 
       ray_mean = ray_mean / HV_sum
 
       b_denom_1 = HV_sum + dt * (ray_mean + a_vmean)
