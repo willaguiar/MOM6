@@ -885,7 +885,7 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
     do k=1,4 ; do I=Isq,Ieq ; if (do_i(I)) then
       HU_sum = cs%h_u(I,j,1) + cs%h_u(I,j,2) + cs%h_u(I,j,3) + cs%h_u(I,j,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
       ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
-      a_umean =  (cs%a_u(I,j,1)*h_u(I,j,1)) + (cs%a_u(I,j,2)*h_u(I,j,2)) + (cs%a_u(I,j,3)*h_u(I,j,3)) + (cs%a_u(I,j,4)*h_u(I,j,4))
+      a_umean =  (cs%a_u(I,j,1)*cs%h_u(I,j,1)) + (cs%a_u(I,j,2)*cs%h_u(I,j,2)) + (cs%a_u(I,j,3)*cs%h_u(I,j,3)) + (cs%a_u(I,j,4)*cs%h_u(I,j,4))
       a_umean =  a_umean / HU_sum
       ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
       ray_mean = (Ray(I,1)*h_u(I,j,1)) + (Ray(I,2)*h_u(I,j,2)) + (Ray(I,3)*h_u(I,j,3)) + (Ray(I,4)*h_u(I,j,4)) 
