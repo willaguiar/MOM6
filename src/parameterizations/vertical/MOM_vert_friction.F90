@@ -899,7 +899,7 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
     endif ; enddo; enddo
 
 
-    do k=2,nz ; do I=Isq,Ieq ; if (do_i(I)) then
+    do k=5,nz ; do I=Isq,Ieq ; if (do_i(I)) then
       c1(I,k) = dt * CS%a_u(I,j,K) * b1(I)
       b_denom_1 = CS%h_u(I,j,k) + dt * (Ray(I,k) + CS%a_u(I,j,K)*d1(I))
       b1(I) = 1.0 / (b_denom_1 + dt * CS%a_u(I,j,K+1))
