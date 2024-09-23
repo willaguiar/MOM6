@@ -1048,12 +1048,12 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
       ray_mean = (Ray(i,1)*CS%h_v(i,J,1)) + (Ray(i,2)*CS%h_v(i,J,2)) + (Ray(i,3)*CS%h_v(i,J,3)) + (Ray(i,4)*CS%h_v(i,J,4)) 
       ray_mean = ray_mean / HV_sum
 
-      b_denom_1 = CS%h_v(i,J,k) + dt * (Ray(i,k) + CS%a_v(i,J,k))
+      b_denom_1 = HV_sum + dt * (ray_mean + a_vmean)
       b1(i) = 1.0 / (b_denom_1 + dt*CS%a_v(i,J,5))
       d1(i) = b_denom_1 * b1(i)
-      v(i,J,1) = b1(i) * (CS%h_v(i,J,k) * v(i,J,1) + surface_stress(i))
+      v(i,J,k) = b1(i) * (HV_sum * v(i,J,k) + surface_stress(i))
       if (associated(ADp%dv_dt_str)) &
-        ADp%dv_dt_str(i,J,1) = b1(i) * (CS%h_v(i,J,1) * ADp%dv_dt_str(i,J,1) + surface_stress(i)*Idt)
+        ADp%dv_dt_str(i,J,k) = b1(i) * (CS%h_v(i,J,k) * ADp%dv_dt_str(i,J,k) + surface_stress(i)*Idt)
     endif ; enddo; enddo
 
     do k=5,nz ; do i=is,ie ; if (do_i(i)) then
