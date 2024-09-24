@@ -895,50 +895,31 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
       ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
       ray_mean = (Ray(I,1)*cs%h_u(I,j,1)) + (Ray(I,2)*cs%h_u(I,j,2)) + (Ray(I,3)*cs%h_u(I,j,3)) + (Ray(I,4)*cs%h_u(I,j,4)) 
       ray_mean = ray_mean / HU_sum
+      u_mean(I,j) = (u(I,j,1)*cs%h_u(I,j,1)) + (u(I,j,2)*cs%h_u(I,j,2)) + (u(I,j,3)*cs%h_u(I,j,3)) + (u(I,j,4)*cs%h_u(I,j,4))
+      u_mean(I,j) = u_mean(I,j)/ HU_sum ! WC. Weighted average 5m U_mean in the last timestep
       b_denom_1 =HU_sum + dt * (ray_mean + a_umean)
       b1(I) = 1.0 / (b_denom_1 + dt*a_umean)
       d1(I) = b_denom_1 * b1(I)
-      u_mean(I,j) = b1(I) * (HU_sum * u(I,j,1) + surface_stress(I))
+      u_mean(I,j) = b1(I) * (HU_sum * u(I,j,1) + surface_stress(I)) !WC> Updates U_mean in the new timestep
     endif ; enddo
+
+    !Using the calculated umean as the solution for the first 4 cells
+    do k=1,4 ; do I=Isq,Ieq ; if (do_i(I)) then
+      u(I,j,k) = u_mean(I,j)
+      if (associated(ADp%du_dt_str)) &
+        ADp%du_dt_str(I,j,k) = b1(I) * (CS%h_u(I,j,k) * ADp%du_dt_str(I,j,k) + surface_stress(I)*Idt)
+    endif ; enddo ; enddo
+    ! in the step above I am not quite sure if I should use CS%h_u(I,j,k) or HU_sum. Let's try both
 
     !solving for additional levels
-    do I=Isq,Ieq ; if (do_i(I)) then
-      b_denom_1 = CS%h_u(I,j,1) + dt * (Ray(I,1) + cs%a_u(I,j,1))
-      b1(I) = 1.0 / (b_denom_1 + dt*cs%a_u(I,j,2))
-      d1(I) = b_denom_1 * b1(I)
-      u(I,j,1) = b1(I) * (CS%h_u(I,j,1) * u(I,j,1) + surface_stress(I))
-      u(I,j,1) = u_mean(I,j) !substituting for the u_mean
-      if (associated(ADp%du_dt_str)) &
-        ADp%du_dt_str(I,j,1) = b1(I) * (CS%h_u(I,j,1) * ADp%du_dt_str(I,j,1) + surface_stress(I)*Idt)
-    endif ; enddo
-
-    do k=2,3 ; do I=Isq,Ieq ; if (do_i(I)) then
-      c1(I,k) = dt * CS%a_u(I,j,k) * b1(I)
-      b_denom_1 = CS%h_u(I,j,k) + dt * (Ray(I,k) + CS%a_u(I,j,k)*d1(I))
-      b1(I) = 1.0 / (b_denom_1 + dt * CS%a_u(I,j,k+1))
-      d1(I) = b_denom_1 * b1(I)
-      u(I,j,k) = (CS%h_u(I,j,k) * u(I,j,k) + &
-                  dt * CS%a_u(I,j,K) * u(I,j,k-1)) * b1(I)
-      u(I,j,k) = u_mean(I,j) !substituting for the u_mean
-      if (associated(ADp%du_dt_str)) &
-        ADp%du_dt_str(I,j,k) = (CS%h_u(I,j,k) * ADp%du_dt_str(I,j,k) + &
-                                dt * CS%a_u(I,j,K) * ADp%du_dt_str(I,j,k-1)) * b1(I)
-    endif ; enddo ; enddo
-
-    k=4
-    do I=Isq,Ieq ; if (do_i(I)) then
-      c1(I,k) = dt * CS%a_u(I,j,k) * b1(I)
-      b_denom_1 = CS%h_u(I,j,k) + dt * (Ray(I,k) + CS%a_u(I,j,k)*d1(I))
-      b1(I) = 1.0 / (b_denom_1 + dt * cs%a_u(I,j,k+1))
-      d1(I) = b_denom_1 * b1(I)
-      u(I,j,k) = (CS%h_u(I,j,k) * u(I,j,k) + &
-                  dt * CS%a_u(I,j,K) * u(I,j,k-1)) * b1(I)
-      u(I,j,k) = u_mean(I,j) !substituting for the u_mean
-      if (associated(ADp%du_dt_str)) &
-        ADp%du_dt_str(I,j,k) = (CS%h_u(I,j,k) * ADp%du_dt_str(I,j,k) + &
-                                dt * CS%a_u(I,j,K) * ADp%du_dt_str(I,j,k-1)) * b1(I)
-    endif ; enddo ;
-
+    !do I=Isq,Ieq ; if (do_i(I)) then
+    !  b_denom_1 = CS%h_u(I,j,1) + dt * (Ray(I,1) + CS%a_u(I,j,1))
+    !  b1(I) = 1.0 / (b_denom_1 + dt*CS%a_u(I,j,2))
+    !  d1(I) = b_denom_1 * b1(I)
+    !  u(I,j,1) = b1(I) * (CS%h_u(I,j,1) * u(I,j,1) + surface_stress(I))
+    !  if (associated(ADp%du_dt_str)) &
+    !    ADp%du_dt_str(I,j,1) = b1(I) * (CS%h_u(I,j,1) * ADp%du_dt_str(I,j,1) + surface_stress(I)*Idt)
+    !endif ; enddo
     do k=5,nz ; do I=Isq,Ieq ; if (do_i(I)) then
       c1(I,k) = dt * CS%a_u(I,j,K) * b1(I)
       b_denom_1 = CS%h_u(I,j,k) + dt * (Ray(I,k) + CS%a_u(I,j,K)*d1(I))
@@ -950,6 +931,7 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
         ADp%du_dt_str(I,j,k) = (CS%h_u(I,j,k) * ADp%du_dt_str(I,j,k) + &
                                 dt * CS%a_u(I,j,K) * ADp%du_dt_str(I,j,k-1)) * b1(I)
     endif ; enddo ; enddo
+
 
 
     ! back substitute to solve for the new velocities
@@ -1081,61 +1063,14 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
     enddo ; enddo ; endif
 
     do i=is,ie ; if (do_i(i)) then
-      HV_sum = CS%h_v(i,J,1) + CS%h_v(i,J,2) + CS%h_v(i,J,3) + CS%h_v(i,J,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
-      ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
-      a_vmean =  (CS%a_v(i,J,1)*CS%h_v(i,J,1)) + (CS%a_v(i,J,2)*CS%h_v(i,J,2)) + (CS%a_v(i,J,3)*CS%h_v(i,J,3)) + (CS%a_v(i,J,4)*CS%h_v(i,J,4))
-      a_vmean =  a_vmean / HV_sum
-      ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
-      ray_mean = (Ray(i,1)*CS%h_v(i,J,1)) + (Ray(i,2)*CS%h_v(i,J,2)) + (Ray(i,3)*CS%h_v(i,J,3)) + (Ray(i,4)*CS%h_v(i,J,4)) 
-      ray_mean = ray_mean / HV_sum
-      b_denom_1 = CS%h_v(i,J,1) + dt * (ray_mean + a_vmean)
-      b1(i) = 1.0 / (b_denom_1 + dt*a_vmean)
+      b_denom_1 = CS%h_v(i,J,1) + dt * (Ray(i,1) + CS%a_v(i,J,1))
+      b1(i) = 1.0 / (b_denom_1 + dt*CS%a_v(i,J,2))
       d1(i) = b_denom_1 * b1(i)
       v(i,J,1) = b1(i) * (CS%h_v(i,J,1) * v(i,J,1) + surface_stress(i))
       if (associated(ADp%dv_dt_str)) &
         ADp%dv_dt_str(i,J,1) = b1(i) * (CS%h_v(i,J,1) * ADp%dv_dt_str(i,J,1) + surface_stress(i)*Idt)
     endif ; enddo
-
-    do k=2,3 ; do i=is,ie ; if (do_i(i)) then
-      HV_sum = CS%h_v(i,J,1) + CS%h_v(i,J,2) + CS%h_v(i,J,3) + CS%h_v(i,J,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
-      ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
-      a_vmean =  (CS%a_v(i,J,1)*CS%h_v(i,J,1)) + (CS%a_v(i,J,2)*CS%h_v(i,J,2)) + (CS%a_v(i,J,3)*CS%h_v(i,J,3)) + (CS%a_v(i,J,4)*CS%h_v(i,J,4))
-      a_vmean =  a_vmean / HV_sum
-      ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
-      ray_mean = (Ray(i,1)*CS%h_v(i,J,1)) + (Ray(i,2)*CS%h_v(i,J,2)) + (Ray(i,3)*CS%h_v(i,J,3)) + (Ray(i,4)*CS%h_v(i,J,4)) 
-      ray_mean = ray_mean / HV_sum
-
-      c1(i,k) = dt * a_vmean * b1(i)
-      b_denom_1 = CS%h_v(i,J,k) + dt * (ray_mean + a_vmean*d1(i))
-      b1(i) = 1.0 / (b_denom_1 + dt * a_vmean)
-      d1(i) = b_denom_1 * b1(i)
-      v(i,J,k) = (CS%h_v(i,J,k) * v(i,J,k) + dt * CS%a_v(i,J,K) * v(i,J,k-1)) * b1(i)
-      if (associated(ADp%dv_dt_str)) &
-        ADp%dv_dt_str(i,J,k) = (CS%h_v(i,J,k) * ADp%dv_dt_str(i,J,k) + &
-                                dt * CS%a_v(i,J,K) * ADp%dv_dt_str(i,J,k-1)) * b1(i)
-    endif ; enddo ; enddo
-
-    k = 4
-    do i=is,ie ; if (do_i(i)) then
-      HV_sum = CS%h_v(i,J,1) + CS%h_v(i,J,2) + CS%h_v(i,J,3) + CS%h_v(i,J,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
-      ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
-      a_vmean =  (CS%a_v(i,J,1)*CS%h_v(i,J,1)) + (CS%a_v(i,J,2)*CS%h_v(i,J,2)) + (CS%a_v(i,J,3)*CS%h_v(i,J,3)) + (CS%a_v(i,J,4)*CS%h_v(i,J,4))
-      a_vmean =  a_vmean / HV_sum
-      ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
-      ray_mean = (Ray(i,1)*CS%h_v(i,J,1)) + (Ray(i,2)*CS%h_v(i,J,2)) + (Ray(i,3)*CS%h_v(i,J,3)) + (Ray(i,4)*CS%h_v(i,J,4)) 
-      ray_mean = ray_mean / HV_sum
-
-      c1(i,k) = dt * a_vmean * b1(i)
-      b_denom_1 = CS%h_v(i,J,k) + dt * (ray_mean + a_vmean*d1(i))
-      b1(i) = 1.0 / (b_denom_1 + dt * CS%a_v(i,J,k+1))
-      d1(i) = b_denom_1 * b1(i)
-      v(i,J,k) = (CS%h_v(i,J,k) * v(i,J,k) + dt * CS%a_v(i,J,K) * v(i,J,k-1)) * b1(i)
-      if (associated(ADp%dv_dt_str)) &
-        ADp%dv_dt_str(i,J,k) = (CS%h_v(i,J,k) * ADp%dv_dt_str(i,J,k) + &
-                                dt * CS%a_v(i,J,K) * ADp%dv_dt_str(i,J,k-1)) * b1(i)
-    endif ; enddo 
-
-    do k=5,nz ; do i=is,ie ; if (do_i(i)) then
+    do k=2,nz ; do i=is,ie ; if (do_i(i)) then
       c1(i,k) = dt * CS%a_v(i,J,K) * b1(i)
       b_denom_1 = CS%h_v(i,J,k) + dt * (Ray(i,k) + CS%a_v(i,J,K)*d1(i))
       b1(i) = 1.0 / (b_denom_1 + dt * CS%a_v(i,J,K+1))
@@ -1145,6 +1080,7 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
         ADp%dv_dt_str(i,J,k) = (CS%h_v(i,J,k) * ADp%dv_dt_str(i,J,k) + &
                                 dt * CS%a_v(i,J,K) * ADp%dv_dt_str(i,J,k-1)) * b1(i)
     endif ; enddo ; enddo
+ 
    
     do k=nz-1,1,-1 ; do i=is,ie ; if (do_i(i)) then
       v(i,J,k) = v(i,J,k) + c1(i,k+1) * v(i,J,k+1)
