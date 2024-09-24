@@ -892,10 +892,10 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
       ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
       ray_mean = (Ray(I,1)*CS%h_u(I,j,1)) + (Ray(I,2)*CS%h_u(I,j,2)) + (Ray(I,3)*CS%h_u(I,j,3)) + (Ray(I,4)*CS%h_u(I,j,4)) 
       ray_mean = ray_mean / HU_sum
-      b_denom_1 = CS%h_u(I,j,1) + dt * (Ray(I,1) + CS%a_u(I,j,1))
-      b1(I) = 1.0 / (b_denom_1 + dt*CS%a_u(I,j,2))
+      b_denom_1 = CS%h_u(I,j,k) + dt * (Ray(I,k) + a_umean)
+      b1(I) = 1.0 / (b_denom_1 + dt*CS%a_u(I,j,5))
       d1(I) = b_denom_1 * b1(I)
-      u(I,j,1) = b1(I) * (CS%h_u(I,j,1) * u(I,j,1) + surface_stress(I))
+      u(I,j,k) = b1(I) * (CS%h_u(I,j,k) * u(I,j,k) + surface_stress(I))
       if (associated(ADp%du_dt_str)) &
         ADp%du_dt_str(I,j,k) = b1(I) * (CS%h_u(I,j,k) * ADp%du_dt_str(I,j,k) + surface_stress(I)*Idt)
     endif ; enddo; enddo
@@ -1048,10 +1048,10 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
       ray_mean = (Ray(i,1)*CS%h_v(i,J,1)) + (Ray(i,2)*CS%h_v(i,J,2)) + (Ray(i,3)*CS%h_v(i,J,3)) + (Ray(i,4)*CS%h_v(i,J,4)) 
       ray_mean = ray_mean / HV_sum
 
-      b_denom_1 = CS%h_v(i,J,1) + dt * (Ray(i,1) + CS%a_v(i,J,1))
-      b1(i) = 1.0 / (b_denom_1 + dt*CS%a_v(i,J,2))
+      b_denom_1 = CS%h_v(i,J,k) + dt * (Ray(i,k) + a_vmean)
+      b1(i) = 1.0 / (b_denom_1 + dt*CS%a_v(i,J,5))
       d1(i) = b_denom_1 * b1(i)
-      v(i,J,1) = b1(i) * (CS%h_v(i,J,1) * v(i,J,1) + surface_stress(i))
+      v(i,J,k) = b1(i) * (CS%h_v(i,J,k) * v(i,J,k) + surface_stress(i))
       if (associated(ADp%dv_dt_str)) &
         ADp%dv_dt_str(i,J,k) = b1(i) * (CS%h_v(i,J,k) * ADp%dv_dt_str(i,J,k) + surface_stress(i)*Idt)
     endif ; enddo; enddo
