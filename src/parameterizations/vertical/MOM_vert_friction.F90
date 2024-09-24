@@ -738,6 +738,8 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
   real :: a_vmean    ! W.C. The v-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
   real :: HU_sum                ! W.C. Sum of  all H_us over the top HMIX_STRESS depth [m]
   real :: HV_sum                ! W.C. Sum of  all H_vs over the top HMIX_STRESS depth [m]
+  real :: u_mean(SZIB_(G),SZJB_(G))   ! W.C. mean U, when first 4 cells are solved at one, to substitute in u)i,j,k), [m s-1]
+  real :: v_mean(SZIB_(G),SZJB_(G))   ! W.C. mean V, when first 4 cells are solved at one, to substitute in u)i,j,k), [m s-1]
   real :: ray_mean ! Ray_mean is the Rayleigh-drag velocity, averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1].
   real :: b1(SZIB_(G))           ! A variable used by the tridiagonal solver [H-1 ~> m-1 or m2 kg-1].
   real :: c1(SZIB_(G),SZK_(GV))  ! A variable used by the tridiagonal solver [nondim].
@@ -884,7 +886,7 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
     ! c1(k) is -c'_(k - 1)
     ! and the right-hand-side is destructively updated to be d'_k
     !
-
+    !calculating umean, the mean u for the 4 upper cells base on distributed wind speeds
     do I=Isq,Ieq ; if (do_i(I)) then
       HU_sum = cs%h_u(I,j,1) + cs%h_u(I,j,2) + cs%h_u(I,j,3) + cs%h_u(I,j,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
       ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
@@ -893,28 +895,31 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
       ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
       ray_mean = (Ray(I,1)*cs%h_u(I,j,1)) + (Ray(I,2)*cs%h_u(I,j,2)) + (Ray(I,3)*cs%h_u(I,j,3)) + (Ray(I,4)*cs%h_u(I,j,4)) 
       ray_mean = ray_mean / HU_sum
-      b_denom_1 = CS%h_u(I,j,1) + dt * (ray_mean + a_umean)
+      b_denom_1 =HU_sum + dt * (ray_mean + a_umean)
       b1(I) = 1.0 / (b_denom_1 + dt*a_umean)
       d1(I) = b_denom_1 * b1(I)
+      u_mean(I,j) = b1(I) * (HU_sum * u(I,j,1) + surface_stress(I))
+    endif ; enddo
+
+    !solving for additional levels
+    do I=Isq,Ieq ; if (do_i(I)) then
+      b_denom_1 = CS%h_u(I,j,1) + dt * (Ray(I,1) + cs%a_u(I,j,1))
+      b1(I) = 1.0 / (b_denom_1 + dt*cs%a_u(I,j,2))
+      d1(I) = b_denom_1 * b1(I)
       u(I,j,1) = b1(I) * (CS%h_u(I,j,1) * u(I,j,1) + surface_stress(I))
+      u(I,j,1) = u_mean(I,j) !substituting for the u_mean
       if (associated(ADp%du_dt_str)) &
         ADp%du_dt_str(I,j,1) = b1(I) * (CS%h_u(I,j,1) * ADp%du_dt_str(I,j,1) + surface_stress(I)*Idt)
     endif ; enddo
 
     do k=2,3 ; do I=Isq,Ieq ; if (do_i(I)) then
-      HU_sum = cs%h_u(I,j,1) + cs%h_u(I,j,2) + cs%h_u(I,j,3) + cs%h_u(I,j,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
-      ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
-      a_umean =  (cs%a_u(I,j,1)*cs%h_u(I,j,1)) + (cs%a_u(I,j,2)*cs%h_u(I,j,2)) + (cs%a_u(I,j,3)*cs%h_u(I,j,3)) + (cs%a_u(I,j,4)*cs%h_u(I,j,4))
-      a_umean =  a_umean / HU_sum
-      ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
-      ray_mean = (Ray(I,1)*cs%h_u(I,j,1)) + (Ray(I,2)*cs%h_u(I,j,2)) + (Ray(I,3)*cs%h_u(I,j,3)) + (Ray(I,4)*cs%h_u(I,j,4)) 
-      ray_mean = ray_mean / HU_sum
-      c1(I,k) = dt * a_umean * b1(I)
-      b_denom_1 = CS%h_u(I,j,k) + dt * (ray_mean + a_umean*d1(I))
-      b1(I) = 1.0 / (b_denom_1 + dt * a_umean)
+      c1(I,k) = dt * CS%a_u(I,j,k) * b1(I)
+      b_denom_1 = CS%h_u(I,j,k) + dt * (Ray(I,k) + CS%a_u(I,j,k)*d1(I))
+      b1(I) = 1.0 / (b_denom_1 + dt * CS%a_u(I,j,k+1))
       d1(I) = b_denom_1 * b1(I)
       u(I,j,k) = (CS%h_u(I,j,k) * u(I,j,k) + &
                   dt * CS%a_u(I,j,K) * u(I,j,k-1)) * b1(I)
+      u(I,j,k) = u_mean(I,j) !substituting for the u_mean
       if (associated(ADp%du_dt_str)) &
         ADp%du_dt_str(I,j,k) = (CS%h_u(I,j,k) * ADp%du_dt_str(I,j,k) + &
                                 dt * CS%a_u(I,j,K) * ADp%du_dt_str(I,j,k-1)) * b1(I)
@@ -922,19 +927,13 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
 
     k=4
     do I=Isq,Ieq ; if (do_i(I)) then
-      HU_sum = cs%h_u(I,j,1) + cs%h_u(I,j,2) + cs%h_u(I,j,3) + cs%h_u(I,j,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
-      ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
-      a_umean =  (cs%a_u(I,j,1)*cs%h_u(I,j,1)) + (cs%a_u(I,j,2)*cs%h_u(I,j,2)) + (cs%a_u(I,j,3)*cs%h_u(I,j,3)) + (cs%a_u(I,j,4)*cs%h_u(I,j,4))
-      a_umean =  a_umean / HU_sum
-      ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
-      ray_mean = (Ray(I,1)*cs%h_u(I,j,1)) + (Ray(I,2)*cs%h_u(I,j,2)) + (Ray(I,3)*cs%h_u(I,j,3)) + (Ray(I,4)*cs%h_u(I,j,4)) 
-      ray_mean = ray_mean / HU_sum
-      c1(I,k) = dt * a_umean * b1(I)
-      b_denom_1 = CS%h_u(I,j,k) + dt * (ray_mean + a_umean*d1(I))
+      c1(I,k) = dt * CS%a_u(I,j,k) * b1(I)
+      b_denom_1 = CS%h_u(I,j,k) + dt * (Ray(I,k) + CS%a_u(I,j,k)*d1(I))
       b1(I) = 1.0 / (b_denom_1 + dt * cs%a_u(I,j,k+1))
       d1(I) = b_denom_1 * b1(I)
       u(I,j,k) = (CS%h_u(I,j,k) * u(I,j,k) + &
                   dt * CS%a_u(I,j,K) * u(I,j,k-1)) * b1(I)
+      u(I,j,k) = u_mean(I,j) !substituting for the u_mean
       if (associated(ADp%du_dt_str)) &
         ADp%du_dt_str(I,j,k) = (CS%h_u(I,j,k) * ADp%du_dt_str(I,j,k) + &
                                 dt * CS%a_u(I,j,K) * ADp%du_dt_str(I,j,k-1)) * b1(I)
@@ -955,13 +954,15 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
 
     ! back substitute to solve for the new velocities
     ! u_k = d'_k - c'_k x_(k+1)
-    do k=nz-1,1,-1 ; do I=Isq,Ieq ; if (do_i(I)) then
+    !WC, CHANGED THE LOOP TO GO UP TO CELL 5, AS 4 FIRST CELLS MOVE TOGETHER
+    do k=nz-1,4,-1 ; do I=Isq,Ieq ; if (do_i(I)) then
       u(I,j,k) = u(I,j,k) + c1(I,k+1) * u(I,j,k+1)
     endif ; enddo ; enddo ! i and k loops
 
     if (associated(ADp%du_dt_str)) then
+    !WC, CHANGED THE LOOP TO GO UP TO CELL 5, AS 4 FIRST CELLS MOVE TOGETHER
       do i=is,ie ; if (abs(ADp%du_dt_str(I,j,nz)) < accel_underflow) ADp%du_dt_str(I,j,nz) = 0.0 ; enddo
-      do k=nz-1,1,-1 ; do I=Isq,Ieq ; if (do_i(I)) then
+      do k=nz-1,4,-1 ; do I=Isq,Ieq ; if (do_i(I)) then
         ADp%du_dt_str(I,j,k) = ADp%du_dt_str(I,j,k) + c1(I,k+1) * ADp%du_dt_str(I,j,k+1)
         if (abs(ADp%du_dt_str(I,j,k)) < accel_underflow) ADp%du_dt_str(I,j,k) = 0.0
       endif ; enddo ; enddo
