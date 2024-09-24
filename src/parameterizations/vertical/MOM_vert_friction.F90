@@ -1033,14 +1033,41 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
     enddo ; enddo ; endif
 
     do i=is,ie ; if (do_i(i)) then
-      b_denom_1 = CS%h_v(i,J,1) + dt * (Ray(i,1) + CS%a_v(i,J,1))
+      HV_sum = CS%h_v(i,J,1) + CS%h_v(i,J,2) + CS%h_v(i,J,3) + CS%h_v(i,J,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
+      ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
+      a_vmean =  (CS%a_v(i,J,1)*CS%h_v(i,J,1)) + (CS%a_v(i,J,2)*CS%h_v(i,J,2)) + (CS%a_v(i,J,3)*CS%h_v(i,J,3)) + (CS%a_v(i,J,4)*CS%h_v(i,J,4))
+      a_vmean =  a_vmean / HV_sum
+      ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
+      ray_mean = (Ray(i,1)*CS%h_v(i,J,1)) + (Ray(i,2)*CS%h_v(i,J,2)) + (Ray(i,3)*CS%h_v(i,J,3)) + (Ray(i,4)*CS%h_v(i,J,4)) 
+      ray_mean = ray_mean / HV_sum
+      b_denom_1 = CS%h_v(i,J,1) + dt * (ray_mean + CS%a_v(i,J,1))
       b1(i) = 1.0 / (b_denom_1 + dt*CS%a_v(i,J,2))
       d1(i) = b_denom_1 * b1(i)
       v(i,J,1) = b1(i) * (CS%h_v(i,J,1) * v(i,J,1) + surface_stress(i))
       if (associated(ADp%dv_dt_str)) &
         ADp%dv_dt_str(i,J,1) = b1(i) * (CS%h_v(i,J,1) * ADp%dv_dt_str(i,J,1) + surface_stress(i)*Idt)
     endif ; enddo
-    do k=2,nz ; do i=is,ie ; if (do_i(i)) then
+
+    do k=2,4 ; do i=is,ie ; if (do_i(i)) then
+      HV_sum = CS%h_v(i,J,1) + CS%h_v(i,J,2) + CS%h_v(i,J,3) + CS%h_v(i,J,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
+      ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
+      a_vmean =  (CS%a_v(i,J,1)*CS%h_v(i,J,1)) + (CS%a_v(i,J,2)*CS%h_v(i,J,2)) + (CS%a_v(i,J,3)*CS%h_v(i,J,3)) + (CS%a_v(i,J,4)*CS%h_v(i,J,4))
+      a_vmean =  a_vmean / HV_sum
+      ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
+      ray_mean = (Ray(i,1)*CS%h_v(i,J,1)) + (Ray(i,2)*CS%h_v(i,J,2)) + (Ray(i,3)*CS%h_v(i,J,3)) + (Ray(i,4)*CS%h_v(i,J,4)) 
+      ray_mean = ray_mean / HV_sum
+
+      c1(i,k) = dt * CS%a_v(i,J,K) * b1(i)
+      b_denom_1 = CS%h_v(i,J,k) + dt * (ray_mean + CS%a_v(i,J,K)*d1(i))
+      b1(i) = 1.0 / (b_denom_1 + dt * CS%a_v(i,J,K+1))
+      d1(i) = b_denom_1 * b1(i)
+      v(i,J,k) = (CS%h_v(i,J,k) * v(i,J,k) + dt * CS%a_v(i,J,K) * v(i,J,k-1)) * b1(i)
+      if (associated(ADp%dv_dt_str)) &
+        ADp%dv_dt_str(i,J,k) = (CS%h_v(i,J,k) * ADp%dv_dt_str(i,J,k) + &
+                                dt * CS%a_v(i,J,K) * ADp%dv_dt_str(i,J,k-1)) * b1(i)
+    endif ; enddo ; enddo
+
+    do k=5,nz ; do i=is,ie ; if (do_i(i)) then
       c1(i,k) = dt * CS%a_v(i,J,K) * b1(i)
       b_denom_1 = CS%h_v(i,J,k) + dt * (Ray(i,k) + CS%a_v(i,J,K)*d1(i))
       b1(i) = 1.0 / (b_denom_1 + dt * CS%a_v(i,J,K+1))
