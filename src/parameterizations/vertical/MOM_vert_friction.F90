@@ -907,7 +907,7 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
     do k=1,4 ; do I=Isq,Ieq ; if (do_i(I)) then
       u(I,j,k) = u_mean(I,j)
       if (associated(ADp%du_dt_str)) &
-        ADp%du_dt_str(I,j,k) = b1(I) * (CS%h_u(I,j,k) * ADp%du_dt_str(I,j,k) + surface_stress(I)*Idt)
+        ADp%du_dt_str(I,j,k) = b1(I) * (HU_sum * ADp%du_dt_str(I,j,k) + surface_stress(I)*Idt)
     endif ; enddo ; enddo
     ! in the step above I am not quite sure if I should use CS%h_u(I,j,k) or HU_sum. Let's try both
 
