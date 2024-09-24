@@ -884,7 +884,8 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
     ! c1(k) is -c'_(k - 1)
     ! and the right-hand-side is destructively updated to be d'_k
     !
-    do k=1,4 ; do I=Isq,Ieq ; if (do_i(I)) then
+
+    do I=Isq,Ieq ; if (do_i(I)) then
       HU_sum = CS%h_u(I,j,1) + CS%h_u(I,j,2) + CS%h_u(I,j,3) + CS%h_u(I,j,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
       ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
       a_umean =  (CS%a_u(I,j,1)*CS%h_u(I,j,1)) + (CS%a_u(I,j,2)*CS%h_u(I,j,2)) + (CS%a_u(I,j,3)*CS%h_u(I,j,3)) + (CS%a_u(I,j,4)*CS%h_u(I,j,4))
@@ -892,12 +893,30 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
       ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
       ray_mean = (Ray(I,1)*CS%h_u(I,j,1)) + (Ray(I,2)*CS%h_u(I,j,2)) + (Ray(I,3)*CS%h_u(I,j,3)) + (Ray(I,4)*CS%h_u(I,j,4)) 
       ray_mean = ray_mean / HU_sum
+      b_denom_1 = CS%h_u(I,j,1) + dt * (Ray(I,1) + a_umean)
+      b1(I) = 1.0 / (b_denom_1 + dt*CS%a_u(I,j,5))
+      d1(I) = b_denom_1 * b1(I)
+      u(I,j,1) = b1(I) * (CS%h_u(I,j,1) * u(I,j,1) + surface_stress(I))
+      if (associated(ADp%du_dt_str)) &
+        ADp%du_dt_str(I,j,1) = b1(I) * (CS%h_u(I,j,1) * ADp%du_dt_str(I,j,1) + surface_stress(I)*Idt)
+    endif ; enddo
+
+
+    do k=2,4 ; do I=Isq,Ieq ; if (do_i(I)) then
+      HU_sum = CS%h_u(I,j,1) + CS%h_u(I,j,2) + CS%h_u(I,j,3) + CS%h_u(I,j,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
+      ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
+      a_umean =  (CS%a_u(I,j,1)*CS%h_u(I,j,1)) + (CS%a_u(I,j,2)*CS%h_u(I,j,2)) + (CS%a_u(I,j,3)*CS%h_u(I,j,3)) + (CS%a_u(I,j,4)*CS%h_u(I,j,4))
+      a_umean =  a_umean / HU_sum
+      ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
+      ray_mean = (Ray(I,1)*CS%h_u(I,j,1)) + (Ray(I,2)*CS%h_u(I,j,2)) + (Ray(I,3)*CS%h_u(I,j,3)) + (Ray(I,4)*CS%h_u(I,j,4)) 
+      ray_mean = ray_mean / HU_sum
+
       b_denom_1 = CS%h_u(I,j,k) + dt * (Ray(I,k) + a_umean)
       b1(I) = 1.0 / (b_denom_1 + dt*CS%a_u(I,j,5))
       d1(I) = b_denom_1 * b1(I)
       u(I,j,k) = b1(I) * (CS%h_u(I,j,k) * u(I,j,k) + surface_stress(I))
       if (associated(ADp%du_dt_str)) &
-        ADp%du_dt_str(I,j,k) = b1(I) * (CS%h_u(I,j,k) * ADp%du_dt_str(I,j,k) + surface_stress(I)*Idt)
+        ADp%du_dt_str(I,j,k) = (CS%h_u(I,j,k) * ADp%du_dt_str(I,j,k) + dt * CS%a_u(I,j,K) * ADp%du_dt_str(I,j,k-1)) * b1(I)
     endif ; enddo; enddo
 
 
@@ -1039,7 +1058,24 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
       Ray(i,k) = visc%Ray_v(i,J,k)
     enddo ; enddo ; endif
 
-    do k=1,4 ; do i=is,ie ; if (do_i(i)) then
+    do i=is,ie ; if (do_i(i)) then
+      HV_sum = CS%h_v(i,J,1) + CS%h_v(i,J,2) + CS%h_v(i,J,3) + CS%h_v(i,J,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
+      ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
+      a_vmean =  (CS%a_v(i,J,1)*CS%h_v(i,J,1)) + (CS%a_v(i,J,2)*CS%h_v(i,J,2)) + (CS%a_v(i,J,3)*CS%h_v(i,J,3)) + (CS%a_v(i,J,4)*CS%h_v(i,J,4))
+      a_vmean =  a_vmean / HV_sum
+      ! below is the Rayleigh-drag velocity, averaged over the top 4 cells, i.e., 5.06 m
+      ray_mean = (Ray(i,1)*CS%h_v(i,J,1)) + (Ray(i,2)*CS%h_v(i,J,2)) + (Ray(i,3)*CS%h_v(i,J,3)) + (Ray(i,4)*CS%h_v(i,J,4)) 
+      ray_mean = ray_mean / HV_sum
+
+      b_denom_1 = CS%h_v(i,J,1) + dt * (Ray(i,1) + a_vmean)
+      b1(i) = 1.0 / (b_denom_1 + dt*CS%a_v(i,J,5))
+      d1(i) = b_denom_1 * b1(i)
+      v(i,J,1) = b1(i) * (CS%h_v(i,J,1) * v(i,J,1) + surface_stress(i))
+      if (associated(ADp%dv_dt_str)) &
+        ADp%dv_dt_str(i,J,1) = b1(i) * (CS%h_v(i,J,1) * ADp%dv_dt_str(i,J,1) + surface_stress(i)*Idt)
+    endif ; enddo
+
+    do k=2,4 ; do i=is,ie ; if (do_i(i)) then
       HV_sum = CS%h_v(i,J,1) + CS%h_v(i,J,2) + CS%h_v(i,J,3) + CS%h_v(i,J,4) ! W.C. Sum of  all H_us over the top 4 cells of the model [m]
       ! W.C. below is The u-drag coefficient, (weighted) averaged over the top HMIX_STRESS depth [Z T-1 ~> m s-1]
       a_vmean =  (CS%a_v(i,J,1)*CS%h_v(i,J,1)) + (CS%a_v(i,J,2)*CS%h_v(i,J,2)) + (CS%a_v(i,J,3)*CS%h_v(i,J,3)) + (CS%a_v(i,J,4)*CS%h_v(i,J,4))
@@ -1053,7 +1089,7 @@ subroutine vertvisc(u, v, h, forces, visc, dt, OBC, ADp, CDp, G, GV, US, CS, &
       d1(i) = b_denom_1 * b1(i)
       v(i,J,k) = b1(i) * (CS%h_v(i,J,k) * v(i,J,k) + surface_stress(i))
       if (associated(ADp%dv_dt_str)) &
-        ADp%dv_dt_str(i,J,k) = b1(i) * (CS%h_v(i,J,k) * ADp%dv_dt_str(i,J,k) + surface_stress(i)*Idt)
+        ADp%dv_dt_str(i,J,k) = (CS%h_v(i,J,k) * ADp%dv_dt_str(i,J,k) + dt * CS%a_v(i,J,K) * ADp%dv_dt_str(i,J,k-1)) * b1(i)
     endif ; enddo; enddo
 
     do k=5,nz ; do i=is,ie ; if (do_i(i)) then
